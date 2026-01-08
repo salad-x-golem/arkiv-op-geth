@@ -36,6 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/internal/ethapi/override"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/trie"
 )
 
 const (
@@ -174,9 +175,14 @@ type simulator struct {
 	traceTransfers bool
 	validate       bool
 	fullTx         bool
+
+	// OP-Stack diff
+	l1AttributesTx *types.Transaction
 }
 
 // execute runs the simulation of a series of blocks.
+// OPStack-diff: execute accepts an l1 attributes transaction which (if non-nil) will be injected into each block
+// at position 0.
 func (sim *simulator) execute(ctx context.Context, blocks []simBlock) ([]*simBlockResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -220,6 +226,8 @@ func (sim *simulator) execute(ctx context.Context, blocks []simBlock) ([]*simBlo
 	return results, nil
 }
 
+// OP-Stack diff: proceesBlock accepts an l1 attributes transaction which (if non-nil) will be injected into the block
+// at position 0.
 func (sim *simulator) processBlock(ctx context.Context, block *simBlock, header, parent *types.Header, headers []*types.Header, timeout time.Duration) (*types.Block, []simCallResult, map[common.Hash]common.Address, types.Receipts, error) {
 	// Set header fields that depend only on parent block.
 	// Parent hash is needed for evm.GetHashFn to work.
@@ -359,12 +367,36 @@ func (sim *simulator) processBlock(ctx context.Context, block *simBlock, header,
 		reqHash := types.CalcRequestsHash(requests)
 		header.RequestsHash = &reqHash
 	}
-	blockBody := &types.Body{Transactions: txes, Withdrawals: *block.BlockOverrides.Withdrawals}
+
+	// For Optimism blocks, inject the provided l1 attributes transaction at the beginning of the block.
+	// This is required because CalcDAFootprint (called by FinalizeAndAssemble for Jovian blocks)
+	// expects the first transaction to be a deposit transaction containing L1 attributes data.
+	isOptimism := sim.chainConfig.IsOptimism()
+	prependedTxes := txes
+	if isOptimism && sim.l1AttributesTx != nil {
+		prependedTxes = append([]*types.Transaction{sim.l1AttributesTx}, txes...)
+	}
+
+	blockBody := &types.Body{Transactions: prependedTxes, Withdrawals: *block.BlockOverrides.Withdrawals}
 	chainHeadReader := &simChainHeadReader{ctx, sim.b}
 	b, err := sim.b.Engine().FinalizeAndAssemble(chainHeadReader, header, sim.state, blockBody, receipts)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
+
+	// For Optimism blocks, reconstruct the block without the l1 attributes transaction
+	// to maintain consistent indexing between transactions and receipts.
+	// We must use types.NewBlock to recompute TxHash correctly for the user transactions only.
+	if isOptimism && sim.l1AttributesTx != nil {
+		b = types.NewBlock(
+			b.Header(),
+			&types.Body{Transactions: txes, Withdrawals: *block.BlockOverrides.Withdrawals},
+			receipts,
+			trie.NewStackTrie(nil),
+			sim.chainConfig,
+		)
+	}
+
 	repairLogs(callResults, b.Hash())
 	return b, callResults, senders, receipts, nil
 }
