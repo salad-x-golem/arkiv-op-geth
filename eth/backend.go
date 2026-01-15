@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/big"
 	"runtime"
@@ -31,7 +32,10 @@ import (
 	"github.com/holiman/uint256"
 	"golang.org/x/time/rate"
 
+	sqlitestore "github.com/Arkiv-Network/sqlite-bitmap-store"
+
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/arkiv/dbevents"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -288,6 +292,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	if config.OverrideVerkle != nil {
 		overrides.OverrideVerkle = config.OverrideVerkle
 	}
+
 	if config.OverrideOptimismCanyon != nil {
 		overrides.OverrideOptimismCanyon = config.OverrideOptimismCanyon
 	}
@@ -315,7 +320,38 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	overrides.ApplySuperchainUpgrades = config.ApplySuperchainUpgrades
 	options.Overrides = &overrides
 
-	eth.blockchain, err = core.NewBlockChain(chainDb, config.Genesis, eth.engine, options)
+	// eth.blockchain, err = core.NewBlockChain(chainDb, config.Genesis, eth.engine, options)
+	log.Info("Creating SQLStore", "path", stack.Config().GolemBaseSQLStateFile)
+	sqlStateFile := stack.Config().GolemBaseSQLStateFile
+
+	if sqlStateFile == "" {
+		sqlStateFile = ":memory:"
+	}
+
+	store, err := sqlitestore.NewSQLiteStore(
+		slog.New(log.Root().Handler()),
+		sqlStateFile,
+		7,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sql store: %w", err)
+	}
+
+	lastBlock, err := store.GetLastBlock(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get last block from store: %w", err)
+	}
+
+	batchIterator, onNewHead := dbevents.NewChainBatchIterator(chainDb, uint64(lastBlock))
+
+	go func() {
+		err := store.FollowEvents(context.Background(), batchIterator)
+		if err != nil {
+			log.Error("failed to follow events", "error", err)
+		}
+	}()
+
+	eth.blockchain, err = core.NewBlockChainWithOnNewBlock(chainDb, config.Genesis, eth.engine, options, onNewHead)
 	if err != nil {
 		return nil, err
 	}
@@ -454,7 +490,17 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	// Start the RPC service
 	eth.netRPCService = ethapi.NewNetAPI(eth.p2pServer, networkID)
 
+	arkivAPI, err := NewArkivAPI(eth, store)
+	if err != nil {
+		return nil, fmt.Errorf("error creating Arkiv API: %w", err)
+	}
 	// Register the backend on the node
+	stack.RegisterAPIs([]rpc.API{
+		{
+			Namespace: "arkiv",
+			Service:   arkivAPI,
+		},
+	})
 	stack.RegisterAPIs(eth.APIs())
 	stack.RegisterProtocols(eth.Protocols())
 	stack.RegisterLifecycle(eth)

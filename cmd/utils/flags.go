@@ -36,6 +36,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/arkiv/dbevents"
 	bparams "github.com/ethereum/go-ethereum/beacon/params"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/fdlimit"
@@ -504,6 +505,12 @@ var (
 		Value:    0,
 		Category: flags.TxPoolCategory,
 	}
+	TxPoolDisableNonGolemBaseTransactions = &cli.BoolFlag{
+		Name:     "txpool.disable.non.golembase.transactions",
+		Usage:    "Maximum amount of time non-executable transaction are queued",
+		Value:    ethconfig.Defaults.TxPool.DisableNonGolemBaseTransactions,
+		Category: flags.TxPoolCategory,
+	}
 	// Blob transaction pool settings
 	BlobPoolDataDirFlag = &cli.StringFlag{
 		Name:     "blobpool.datadir",
@@ -935,6 +942,25 @@ var (
 		Usage:    "Use a custom UDP port for P2P discovery",
 		Value:    30303,
 		Category: flags.NetworkingCategory,
+	}
+
+	// Golem Base Settings
+	GolemBaseSQLStateFile = &cli.PathFlag{
+		Name:     "golembase.sqlstatefile",
+		Usage:    "Path to the SQL state file for the Golem Base",
+		Category: flags.MiscCategory,
+	}
+	ArkivHistoricBlocksFlag = &cli.Uint64Flag{
+		Name:     "arkiv.history.blocks",
+		Usage:    "Number of blocks to retain in the Arkiv state, 0 means full history",
+		Category: flags.MiscCategory,
+		Value:    128,
+	}
+	ArkivDatabaseDisabledFlag = &cli.BoolFlag{
+		Name:     "arkiv.disable-database",
+		Usage:    "Disable the Arkiv database",
+		Category: flags.MiscCategory,
+		Value:    false,
 	}
 
 	// Console
@@ -1505,6 +1531,7 @@ func setEtherbase(ctx *cli.Context, cfg *ethconfig.Config) {
 		return
 	}
 	cfg.Miner.PendingFeeRecipient = common.BytesToAddress(b)
+
 }
 
 func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
@@ -1598,6 +1625,21 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		log.Info(fmt.Sprintf("Using %s as db engine", dbEngine))
 		cfg.DBEngine = dbEngine
 	}
+
+	cfg.GolemBaseSQLStateFile = filepath.Join(cfg.DataDir, "golem-base.db")
+
+	if ctx.IsSet(GolemBaseSQLStateFile.Name) {
+		cfg.GolemBaseSQLStateFile = ctx.String(GolemBaseSQLStateFile.Name)
+	}
+
+	if ctx.IsSet(ArkivHistoricBlocksFlag.Name) {
+		cfg.ArkivHistoricBlocksFlag = ctx.Uint64(ArkivHistoricBlocksFlag.Name)
+	} else {
+		cfg.ArkivHistoricBlocksFlag = ArkivHistoricBlocksFlag.Value
+	}
+
+	cfg.ArkivDatabaseDisabled = ctx.Bool(ArkivDatabaseDisabledFlag.Name)
+
 	// deprecation notice for log debug flags (TODO: find a more appropriate place to put these?)
 	if ctx.IsSet(LogBacktraceAtFlag.Name) {
 		log.Warn("Option --log.backtrace flag is deprecated")
@@ -1706,6 +1748,9 @@ func setTxPool(ctx *cli.Context, cfg *legacypool.Config) {
 	if ctx.IsSet(TxPoolLifetimeFlag.Name) {
 		cfg.Lifetime = ctx.Duration(TxPoolLifetimeFlag.Name)
 	}
+	if ctx.IsSet(TxPoolDisableNonGolemBaseTransactions.Name) {
+		cfg.DisableNonGolemBaseTransactions = ctx.Bool(TxPoolDisableNonGolemBaseTransactions.Name)
+	}
 	if ctx.IsSet(MinerEffectiveGasLimitFlag.Name) {
 		// While technically this is a miner config parameter, we also want the txpool to enforce
 		// it to avoid accepting transactions that can never be included in a block.
@@ -1729,6 +1774,12 @@ func setBlobPool(ctx *cli.Context, cfg *blobpool.Config) {
 }
 
 func setMiner(ctx *cli.Context, cfg *miner.Config) {
+
+	if ctx.Bool(DeveloperFlag.Name) {
+		log.Info("arkiv: Developer flag set, enabling dev mode for miner")
+		cfg.DevMode = true
+	}
+
 	if ctx.Bool(MiningEnabledFlag.Name) {
 		log.Warn("The flag --mine is deprecated and will be removed")
 	}
@@ -2537,12 +2588,30 @@ func MakeChain(ctx *cli.Context, stack *node.Node, readonly bool) (*core.BlockCh
 	}
 	options.VmConfig = vmcfg
 
-	chain, err := core.NewBlockChain(chainDb, gspec, engine, options)
-	if err != nil {
-		Fatalf("Can't create BlockChain: %v", err)
-	}
+	// log.Info("Creating SQLStore", "path", stack.Config().GolemBaseSQLStateFile)
+	// st, err := sqlstore.NewStore(
+	// 	stack.Config().GolemBaseSQLStateFile,
+	// 	stack.Config().ArkivHistoricBlocksFlag,
+	// 	stack.Config().ArkivDatabaseDisabled,
+	// )
+	// if err != nil {
+	// 	Fatalf("failed to create SQLStore: %v", err)
+	// }
 
+	batchIterator, onNewHead := dbevents.NewChainBatchIterator(chainDb, 0)
+
+	go func() {
+		for b := range batchIterator {
+			log.Info("arkiv new batch", "from", b.Batch.Blocks[0].Number, "to", b.Batch.Blocks[len(b.Batch.Blocks)-1].Number)
+		}
+	}()
+
+	chain, err := core.NewBlockChainWithOnNewBlock(chainDb, gspec, engine, options, onNewHead)
+	if err != nil {
+		Fatalf("Can't create BlockChain with onNewBlock: %v", err)
+	}
 	return chain, chainDb
+
 }
 
 // MakeConsolePreloads retrieves the absolute paths for the console JavaScript

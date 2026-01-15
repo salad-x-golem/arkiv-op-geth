@@ -4,7 +4,7 @@ ARG VERSION=""
 ARG BUILDNUM=""
 
 # Build Geth in a stock Go builder container
-FROM golang:1.24-alpine3.22 AS builder
+FROM golang:1.25.4-alpine AS builder
 
 RUN apk add --no-cache gcc musl-dev linux-headers git
 
@@ -14,13 +14,15 @@ COPY go.sum /go-ethereum/
 RUN cd /go-ethereum && go mod download
 
 ADD . /go-ethereum
-RUN cd /go-ethereum && go run build/ci.go install -static ./cmd/geth
+RUN --mount=type=cache,target=/root/.cache/go-build cd /go-ethereum && go run build/ci.go install -static ./cmd/geth
+RUN --mount=type=cache,target=/root/.cache/go-build cd /go-ethereum && go run build/ci.go install -static ./cmd/golembase
 
 # Pull Geth into a second stage deploy alpine container
 FROM alpine:3.22
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates curl
 COPY --from=builder /go-ethereum/build/bin/geth /usr/local/bin/
+COPY --from=builder /go-ethereum/build/bin/golembase /usr/local/bin/
 
 EXPOSE 8545 8546 30303 30303/udp
 ENTRYPOINT ["geth"]

@@ -20,6 +20,7 @@ package legacypool
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"math"
 	"math/big"
@@ -28,6 +29,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/arkiv/address"
+	"github.com/ethereum/go-ethereum/arkiv/compression"
+	"github.com/ethereum/go-ethereum/arkiv/storagetx"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
@@ -54,6 +58,7 @@ const (
 	// non-trivial consequences: larger transactions are significantly harder and
 	// more expensive to propagate; larger transactions also take more resources
 	// to validate whether they fit into the pool or not.
+	// txMaxSize = 16 * txSlotSize // 512KB
 	txMaxSize = 4 * txSlotSize // 128KB
 )
 
@@ -74,6 +79,9 @@ var (
 	// ErrFutureReplacePending is returned if a future transaction replaces a pending
 	// one. Future transactions should only be able to replace other future transactions.
 	ErrFutureReplacePending = errors.New("future transaction tries to replace pending")
+
+	// ErrNonGolembaseTransaction is returned if a transaction is not a Golembase transaction.
+	ErrNonGolembaseTransaction = errors.New("non-golembase transaction")
 )
 
 var (
@@ -161,6 +169,8 @@ type Config struct {
 	// FilterInterval defines how often already-added transactions are rechecked
 	// against ingress filters.
 	FilterInterval time.Duration
+
+	DisableNonGolemBaseTransactions bool // Disallow non-Golembase transactions such as transfers to non-Golembase accounts and contract creations
 }
 
 // DefaultConfig contains the default configurations for the transaction pool.
@@ -276,6 +286,8 @@ type LegacyPool struct {
 	ingressFilters []txpool.IngressFilter // Filters to apply to incoming transactions
 	filterCtx      context.Context        // Filters may use this context with external resources
 	filterCancel   context.CancelFunc     // Cancel function for the filter context
+
+	disableNonGolembaseTransactions bool
 }
 
 type txpoolResetRequest struct {
@@ -291,19 +303,20 @@ func New(config Config, chain BlockChain) *LegacyPool {
 	// Create the transaction pool with its initial settings
 	signer := types.LatestSigner(chain.Config())
 	pool := &LegacyPool{
-		config:          config,
-		chain:           chain,
-		chainconfig:     chain.Config(),
-		signer:          signer,
-		pending:         make(map[common.Address]*list),
-		queue:           newQueue(config, signer),
-		all:             newLookup(),
-		reqResetCh:      make(chan *txpoolResetRequest),
-		reqPromoteCh:    make(chan *accountSet),
-		queueTxEventCh:  make(chan *types.Transaction),
-		reorgDoneCh:     make(chan chan struct{}),
-		reorgShutdownCh: make(chan struct{}),
-		initDoneCh:      make(chan struct{}),
+		config:                          config,
+		chain:                           chain,
+		chainconfig:                     chain.Config(),
+		signer:                          signer,
+		pending:                         make(map[common.Address]*list),
+		queue:                           newQueue(config, signer),
+		all:                             newLookup(),
+		reqResetCh:                      make(chan *txpoolResetRequest),
+		reqPromoteCh:                    make(chan *accountSet),
+		queueTxEventCh:                  make(chan *types.Transaction),
+		reorgDoneCh:                     make(chan chan struct{}),
+		reorgShutdownCh:                 make(chan struct{}),
+		initDoneCh:                      make(chan struct{}),
+		disableNonGolembaseTransactions: config.DisableNonGolemBaseTransactions,
 	}
 	pool.priced = newPricedList(pool.all)
 
@@ -625,6 +638,46 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 // This check is meant as an early check which only needs to be performed once,
 // and does not require the pool mutex to be held.
 func (pool *LegacyPool) ValidateTxBasics(tx *types.Transaction) error {
+
+	to := tx.To()
+	if pool.disableNonGolembaseTransactions {
+
+		switch {
+		case to == nil:
+			return ErrNonGolembaseTransaction
+		case *to == address.ArkivProcessorAddress:
+			// allow arkiv transactions
+		default:
+			return ErrNonGolembaseTransaction
+		}
+
+	}
+
+	switch {
+	case to != nil && *to == address.ArkivProcessorAddress:
+		if len(tx.Data()) == 0 {
+			return fmt.Errorf("arkiv transaction data is empty")
+		}
+
+		_, err := compression.BrotliDecompress(tx.Data())
+		if err != nil {
+			return fmt.Errorf("failed to decompress arkiv transaction data: %w", err)
+		}
+
+		tx, err := storagetx.UnpackArkivTransaction(tx.Data())
+		if err != nil {
+			return fmt.Errorf("failed to unpack arkiv transaction: %w", err)
+		}
+
+		tx.Validate()
+		if err != nil {
+			return fmt.Errorf("failed to validate arkiv transaction: %w", err)
+		}
+
+		return nil
+
+	}
+
 	opts := &txpool.ValidationOptions{
 		Config: pool.chainconfig,
 		Accept: 0 |
