@@ -1,5 +1,5 @@
 github.com/salad-x-golem/arkiv-events v0.0.4 h1:pLpWSq6daEq0dwY2OokKpMTHcvS51riUWBklLtC3cWg=
-github.com/salad-x-golem/arkiv-events v0.0.4/go.mod h1:LaYW4FqA95Rhp/SKTAF8+FEK7cazJDRBXPXl7I90NRc=
+github.com/salad-x-golem/arkiv-events v0.0.4/go.mod h1:SmfATPyabZyqC3xSlNibxnTTJDGgDtlc6rC7UnbJ0Kk=
 github.com/salad-x-golem/sqlite-bitmap-store v0.0.18 h1:lUS5qP4D3V5m3ODd0IVHBOREx3Or6zivG6eaYLsTysc=
 github.com/salad-x-golem/sqlite-bitmap-store v0.0.18/go.mod h1:P4vElNNh/nAnzoyMK+icUhT9LtrJp34PivG1JqXBmUM=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v1.7.0 h1:8q4SaHjFsClSvuVne0ID/5Ka8u3fcIHyqkLjcFpNRHQ=
