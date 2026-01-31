@@ -17,7 +17,7 @@ For details on our Arkiv storage layer, please visit the [README.md](./arkiv/REA
 ## 🏃 Running Locally
 
 We've provided a docker-compose.yml file that builds and launches the services within several docker containers. This way you can run it with one line:
-
+ 
 ```
 docker-compose up
 ```
