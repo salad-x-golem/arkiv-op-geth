@@ -3,14 +3,14 @@ package dbevents
 import (
 	"sync"
 
-	arkivevents "github.com/Arkiv-Network/arkiv-events"
-	"github.com/Arkiv-Network/arkiv-events/events"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	arkivevents "github.com/salad-x-golem/arkiv-events"
+	"github.com/salad-x-golem/arkiv-events/events"
 )
 
 func NewChainBatchIterator(db ethdb.Database, lastBlock uint64) (

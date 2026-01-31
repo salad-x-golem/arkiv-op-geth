@@ -1,6 +1,6 @@
 ## 🚀 Arkiv op-geth
 
-This is part of the [Arkiv](https://github.com/Arkiv-Network) project, which is a Layer2 Network deployed on Ethereum, acting as a gateway to various Layer 3 Database Chains (DB-Chains).
+This is part of the [Arkiv](https://github.com/salad-x-golem) project, which is a Layer2 Network deployed on Ethereum, acting as a gateway to various Layer 3 Database Chains (DB-Chains).
 
 > **For an overview of Golem Base, check out our [Litepaper](https://arkiv.network/pdf/ARKIV_Litepaper_blue.pdf).**
 

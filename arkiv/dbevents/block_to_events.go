@@ -3,12 +3,12 @@ package dbevents
 import (
 	"fmt"
 
-	"github.com/Arkiv-Network/arkiv-events/events"
 	"github.com/ethereum/go-ethereum/arkiv/address"
 	"github.com/ethereum/go-ethereum/arkiv/logs"
 	"github.com/ethereum/go-ethereum/arkiv/storagetx"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/salad-x-golem/arkiv-events/events"
 )
 
 func blockToEvents(rawBlock *types.Block, rawReceipts []*types.Receipt) (*events.Block, error) {

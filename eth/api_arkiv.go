@@ -6,10 +6,10 @@ import (
 	"math/big"
 	"time"
 
-	sqlitestore "github.com/Arkiv-Network/sqlite-bitmap-store"
 	"github.com/ethereum/go-ethereum/arkiv/storageaccounting"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
+	sqlitestore "github.com/salad-x-golem/sqlite-bitmap-store"
 )
 
 type arkivAPI struct {

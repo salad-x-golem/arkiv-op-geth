@@ -3,8 +3,8 @@ module github.com/ethereum/go-ethereum
 go 1.25.4
 
 require (
-	github.com/Arkiv-Network/arkiv-events v0.0.4
-	github.com/Arkiv-Network/sqlite-bitmap-store v0.0.18
+	github.com/salad-x-golem/arkiv-events v0.0.4
+	github.com/salad-x-golem/sqlite-bitmap-store v0.0.18
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.2.0
 	github.com/BurntSushi/toml v1.5.0
 	github.com/Microsoft/go-winio v0.6.2

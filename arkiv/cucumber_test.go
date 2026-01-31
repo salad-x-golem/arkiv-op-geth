@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	sqlitestore "github.com/Arkiv-Network/sqlite-bitmap-store"
 	"github.com/cucumber/godog"
 	"github.com/cucumber/godog/colors"
 	"github.com/ethereum/go-ethereum/arkiv/address"
@@ -31,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/holiman/uint256"
+	sqlitestore "github.com/salad-x-golem/sqlite-bitmap-store"
 	"github.com/spf13/pflag" // godog v0.11.0 and later
 )
 

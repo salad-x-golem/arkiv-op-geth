@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 
-	sqlitestore "github.com/Arkiv-Network/sqlite-bitmap-store"
 	"github.com/ethereum/go-ethereum/arkiv/storagetx"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	sqlitestore "github.com/salad-x-golem/sqlite-bitmap-store"
 )
 
 // World is the test world - it holds all the state that is shared between steps

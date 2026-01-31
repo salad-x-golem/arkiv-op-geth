@@ -32,7 +32,7 @@ import (
 	"github.com/holiman/uint256"
 	"golang.org/x/time/rate"
 
-	sqlitestore "github.com/Arkiv-Network/sqlite-bitmap-store"
+	sqlitestore "github.com/salad-x-golem/sqlite-bitmap-store"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/arkiv/dbevents"
