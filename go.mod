@@ -64,7 +64,7 @@ require (
 	github.com/protolambda/ztyp v0.2.2
 	github.com/rs/cors v1.7.0
 	github.com/salad-x-golem/arkiv-events v0.0.4
-	github.com/salad-x-golem/sqlite-bitmap-store v0.0.18-metrics
+	github.com/salad-x-golem/sqlite-bitmap-store v0.0.18-metrics.1
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
 	github.com/spf13/pflag v1.0.7
 	github.com/status-im/keycard-go v0.2.0
