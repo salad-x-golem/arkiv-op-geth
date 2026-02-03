@@ -3,8 +3,6 @@ module github.com/ethereum/go-ethereum
 go 1.25.4
 
 require (
-	github.com/salad-x-golem/arkiv-events v0.0.4
-	github.com/salad-x-golem/sqlite-bitmap-store v0.0.20
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.2.0
 	github.com/BurntSushi/toml v1.5.0
 	github.com/Microsoft/go-winio v0.6.2
@@ -65,6 +63,8 @@ require (
 	github.com/protolambda/zrnt v0.34.1
 	github.com/protolambda/ztyp v0.2.2
 	github.com/rs/cors v1.7.0
+	github.com/salad-x-golem/arkiv-events v0.0.4
+	github.com/salad-x-golem/sqlite-bitmap-store v0.0.18-metrics.2
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
 	github.com/spf13/pflag v1.0.7
 	github.com/status-im/keycard-go v0.2.0
