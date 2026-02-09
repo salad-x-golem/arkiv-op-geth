@@ -176,6 +176,12 @@ export your existing configuration:
 $ geth --your-favourite-flags dumpconfig
 ```
 
+#### Block gas limit cap
+
+The target gas limit for new blocks is configured via `--miner.gaslimit` (or `--dev.gaslimit`
+in developer mode). The hard maximum for any block gas limit is defined in
+`params.MaxGasLimit` (`params/protocol_params.go`) and enforced during header validation.
+
 #### Docker quick start
 
 One of the quickest ways to get Ethereum up and running on your machine is by using
